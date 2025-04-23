@@ -9,7 +9,7 @@ class User(AbstractUser):
         (1, 'Employer'),
     ]
 
-    role = models.IntegerField(choices=ROLE_CHOICES, default=ROLE_CHOICES[0])
+    role = models.IntegerField(choices=ROLE_CHOICES, default=0)
     phone = models.CharField(max_length=15, null=True, blank=True)
     avatar = CloudinaryField(null=True, blank=True)
 
@@ -100,7 +100,7 @@ class Apply(ModelBase):
         (2, 'Rejected'),
     ]
 
-    status = models.IntegerField(choices=STATUS, default=STATUS[0])
+    status = models.IntegerField(choices=STATUS, default=0)
 
     # foreignKey
     resume = models.ForeignKey(Resume, on_delete=models.CASCADE)
