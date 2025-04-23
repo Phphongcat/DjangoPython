@@ -1,0 +1,10 @@
+{% extends 'admin/base_site.html' %}
+{% block content %}
+<h1>Recruitment Stats</h1>
+
+<ul>
+    {% for stat in stats %}
+    <li>{{ stat.id }} - {{ stat.name }} - {{ stat.cate_count }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
