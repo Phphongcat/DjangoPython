@@ -42,7 +42,6 @@ class Category(ModelBase):
 
 class Company(ModelBase):
     name = models.CharField(max_length=255)
-    icon = CloudinaryField(null=True, blank=True)
     code = models.CharField(max_length=20, unique=True)
     verified = models.BooleanField(default=False)
 
