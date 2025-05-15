@@ -184,5 +184,12 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             user.save()
 
         response = serializers.UserSerializer(user).data
-        response['verified'] = bool(user.avatar and user.phone)
+        response['supply'] = bool(user.avatar and user.phone)
+
+        if user.is_employer():
+            response['has_company'] = models.Company.objects.filter(owner=user).exists()
+            response['verified'] = models.Company.objects.filter(owner=user, verified=True).exists()
+        else:
+            response['verified'] = True
+
         return Response(response)
