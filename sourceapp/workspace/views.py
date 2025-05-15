@@ -178,12 +178,15 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         user = request.user
 
         if request.method == 'PATCH':
-            if 'avatar' in request.FILES:
-                user.avatar = request.FILES['avatar']
-            for key, value in request.data.items():
-                if key in ['phone', 'role']:
-                    setattr(user, key, value)
-            user.save()
+            try:
+                if 'avatar' in request.FILES:
+                    user.avatar = request.FILES['avatar']
+                for key, value in request.data.items():
+                    if key in ['phone', 'role']:
+                        setattr(user, key, value)
+                user.save()
+            except Exception as e:
+                return Response({'detail': 'Server error: ' + str(e)}, status=500)
 
         response = serializers.UserSerializer(user).data
         response['supply'] = bool(user.avatar and user.phone)
