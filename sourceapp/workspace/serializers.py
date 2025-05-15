@@ -1,11 +1,17 @@
 from rest_framework.serializers import ModelSerializer
-from .models import User, Category, Resume, Company, Recruitment, CompanyImage, Apply, Follow, Comment
+from . import models
 
 
 class CategorySerializer(ModelSerializer):
     class Meta:
-        model = Category
+        model = models.Category
         fields = ['name', 'description']
+
+
+class WorkTypeSerializer(ModelSerializer):
+    class Meta:
+        model = models.WorkType
+        fields = ['name']
 
 
 class ResumeSerializer(ModelSerializer):
@@ -15,19 +21,8 @@ class ResumeSerializer(ModelSerializer):
         return data
 
     class Meta:
-        model = Resume
+        model = models.Resume
         fields = ['name', 'cv', 'user']
-
-
-class CompanySerializer(ModelSerializer):
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['cv'] = instance.cv.url if instance.cv else ''
-        return data
-
-    class Meta:
-        model = Company
-        fields = ['name', 'icon', 'code']
 
 
 class CompanyImageSerializer(ModelSerializer):
@@ -37,32 +32,53 @@ class CompanyImageSerializer(ModelSerializer):
         return data
 
     class Meta:
-        model = CompanyImage
+        model = models.CompanyImage
         fields = ['image']
+
+
+class CompanySerializer(ModelSerializer):
+    images = CompanyImageSerializer(many=True, write_only=True)
+
+    def create(self, validated_data):
+        images_data = validated_data.pop('images')
+        company = models.Company.objects.create(**validated_data)
+        for image_data in images_data:
+            models.CompanyImage.objects.create(company=company, **image_data)
+        return company
+
+    class Meta:
+        model = models.Company
+        fields = ['name', 'code', 'images']
 
 
 class RecruitmentSerializer(ModelSerializer):
     class Meta:
-        model = Recruitment
+        model = models.Recruitment
         fields = ['title', 'description', 'skills_required', 'salary', 'location', 'company', 'category', 'work_time_start']
 
 
 class ApplySerializer(ModelSerializer):
     class Meta:
-        model = Apply
+        model = models.Apply
         fields = ['resume', 'recruitment', 'status']
 
 
 class FollowSerializer(ModelSerializer):
     class Meta:
-        model = Follow
+        model = models.Follow
         fields = ['company', 'user']
 
 
-class CommentSerializer(ModelSerializer):
+class UserCommentSerializer(ModelSerializer):
     class Meta:
-        model = Comment
-        fields = ['content', 'user', 'company']
+        model = models.UserComment
+        fields = ['content', 'company']
+
+
+class CompanyCommentSerializer(ModelSerializer):
+    class Meta:
+        model = models.CompanyComment
+        fields = ['content', 'user']
 
 
 class UserSerializer(ModelSerializer):
@@ -71,18 +87,18 @@ class UserSerializer(ModelSerializer):
         data['avatar'] = instance.avatar.url if instance.avatar else ''
         return data
 
+    def create(self, validated_data):
+        data = validated_data.copy()
+        u = models.User(**data)
+        u.set_password(u.password)
+        u.save()
+        return u
+
     class Meta:
-        model = User
+        model = models.User
         fields = ['email', 'phone', 'first_name', 'last_name', 'role', 'avatar']
         extra_kwargs = {
             'password': {
                 'write_only': True
             }
         }
-
-    def create(self, validated_data):
-        data = validated_data.copy()
-        u = User(**data)
-        u.set_password(u.password)
-        u.save()
-        return u

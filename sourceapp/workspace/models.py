@@ -1,5 +1,7 @@
 from cloudinary.models import CloudinaryField
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db import models
 
 
@@ -35,6 +37,13 @@ class ModelBase(models.Model):
 class Category(ModelBase):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+
+class WorkType(ModelBase):
+    name = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         return self.name
@@ -129,8 +138,15 @@ class Follow(Interact):
         unique_together = ('user', 'company')
 
 
-class Comment(Interact):
+class UserComment(Interact):
     content = models.CharField(max_length=255)
 
     def __str__(self):
         return f"{self.user.full_name()} commented on {self.company.user.full_name()}"
+
+
+class CompanyComment(Interact):
+    content = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.company.user.full_name()} commented on {self.user.full_name()}"

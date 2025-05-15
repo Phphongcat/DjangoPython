@@ -1,8 +1,6 @@
 from rest_framework import viewsets, generics, status, parsers, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
-from django.db import transaction
 
 from . import serializers, perms, models, paginators
 
@@ -10,6 +8,11 @@ from . import serializers, perms, models, paginators
 class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Category.objects.filter(active=True)
     serializer_class = serializers.CategorySerializer
+
+
+class WorkTypeViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = models.WorkType.objects.filter(active=True)
+    serializer_class = serializers.WorkTypeSerializer
 
 
 class CompanyViewSet(viewsets.ViewSet, generics.ListAPIView):
@@ -80,7 +83,7 @@ class ResumeViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method in ['POST', 'PATCH']:
-            return [perms.OwnerPerms()]
+            return [perms.Owner()]
         return [permissions.AllowAny()]
 
     def get_queryset(self):
@@ -112,20 +115,32 @@ class ApplyViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
         return query
 
 
-class CommentViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
-    queryset = models.Comment.objects.filter(active=True)
-    serializer_class = serializers.CommentSerializer
+class UserCommentViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
+    queryset = models.UserComment.objects.filter(active=True)
+    serializer_class = serializers.UserCommentSerializer
     pagination_class = paginators.CommentPaginator
     permission_classes = perms.OtherOnlyRead
 
     def get_queryset(self):
         query = self.queryset
-
         user_id = self.request.query_params.get('user_id')
+
         if user_id:
             query = query.filter(user__id=user_id)
 
+        return query
+
+
+class CompanyCommentViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
+    queryset = models.CompanyComment.objects.filter(active=True)
+    serializer_class = serializers.CompanyCommentSerializer
+    pagination_class = paginators.CommentPaginator
+    permission_classes = perms.OtherOnlyRead
+
+    def get_queryset(self):
+        query = self.queryset
         company_id = self.request.query_params.get('company_id')
+
         if company_id:
             query = query.filter(company__id=company_id)
 
@@ -163,71 +178,11 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         user = request.user
 
         if request.method == 'PATCH':
-            try:
-                with transaction.atomic():
-                    role = int(request.data.get('role'))
-                    avatar = request.data.get('avatar')
-                    phone = request.data.get('phone')
+            for key, value in request.data.items():
+                if key in ['avatar', 'phone', 'role']:
+                    setattr(user, key, value)
+            user.save()
 
-                    if not avatar or not phone:
-                        return Response({'error': 'Avatar and phone are required fields.'}, status=status.HTTP_400_BAD_REQUEST)
-
-                    user.avatar = avatar
-                    user.phone = phone
-
-                    if role:
-                        if role not in models.User.ROLE_CHOICES:
-                            return Response({'error': 'Invalid role provided.'}, status=status.HTTP_400_BAD_REQUEST)
-                        user.role = role
-
-                    if user.is_employer():
-                        company = parse_nested_data(request.data, "company")
-                        company_images = request.data.getlist('company_images')
-
-                        if not company or not company_images:
-                            return Response({'error': 'Company and company images are required for EMPLOYER users.'}, status=status.HTTP_400_BAD_REQUEST)
-
-                        company_serializer = serializers.CompanySerializer(data=company)
-                        company_serializer.is_valid(raise_exception=True)
-                        company_instance = company_serializer.save(user=user)
-
-                        for image in company_images:
-                            image_serializer = serializers.CompanyImageSerializer(data={'image': image})
-                            image_serializer.is_valid(raise_exception=True)
-                            image_serializer.save(company=company_instance)
-
-                    else:
-                        resume = parse_nested_data(request.data, "resume")
-                        if not resume:
-                            return Response({'error': 'Resume data is required for DEFAULT users.'}, status=status.HTTP_400_BAD_REQUEST)
-
-                        serializer = serializers.ResumeSerializer(data=resume)
-                        serializer.is_valid(raise_exception=True)
-                        serializer.save(user=user)
-
-                    user.save()
-                    return Response({'message': 'User updated successfully'}, status=status.HTTP_200_OK)
-
-            except ValidationError as e:
-                return Response({'error': 'Validation error', 'details': e.detail}, status=status.HTTP_400_BAD_REQUEST)
-            except Exception as e:
-                return Response({'error': 'An unexpected error occurred', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        else:
-            is_verified = bool(
-                user.avatar and (
-                    user.companies.filter(active=True).exists() if user.is_employer() else user.resumes.filter(active=True).exists()
-                )
-            )
-
-            user_data = serializers.UserSerializer(user).data
-            user_data['verified'] = is_verified
-            return Response(user_data)
-
-def parse_nested_data(data, prefix):
-    nested_data = {}
-    for key, value in data.items():
-        if key.startswith(f"{prefix}[") and key.endswith("]"):
-            nested_key = key[len(prefix) + 1:-1]
-            nested_data[nested_key] = value
-    return nested_data
+        response = serializers.UserSerializer(user).data
+        response['verified'] = bool(user.avatar and user.phone)
+        return Response(response)
