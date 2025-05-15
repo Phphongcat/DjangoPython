@@ -178,8 +178,10 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         user = request.user
 
         if request.method == 'PATCH':
+            if 'avatar' in request.FILES:
+                user.avatar = request.FILES['avatar']
             for key, value in request.data.items():
-                if key in ['avatar', 'phone', 'role']:
+                if key in ['phone', 'role']:
                     setattr(user, key, value)
             user.save()
 
