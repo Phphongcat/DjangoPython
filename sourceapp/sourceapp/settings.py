@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-)u6&7mb0hyiwkpd%*33wv(7jyun2&i70j!z$+v_1de7gu&(0_f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'social_django',
     'drf_social_oauth2',
+    'corsheaders',
+    'django.contrib.humanize',
 ]
 
 # Configuration
@@ -96,7 +98,10 @@ SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
     'fields': 'id, name, email'
 }
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -186,5 +191,14 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CLIENT_ID = 'Wztortz8Ln4fYiM4sWmSHHlwi3grvvpJWu2Ln0Hh'
-CLIENT_SECRET = 'bDb6mc3SUPDeMpWLYqIxrb4rAWaxHSYRRuwjqyCKynYtVi3D1zNW9zUoiYvofafKRvoR6b3ypacGBxErKX2npoNsrKVWEEdAmjlTiZVShxULxNkpTm9kEB92cnXBW7TM'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'phphongcat@gmail.com'
+EMAIL_HOST_PASSWORD = 'lnyo hssp fbpr rjcz'
+
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+
+CLIENT_ID = 'OtKEc3aGI68E2AADgpHxNzEiPO9qaGaNyZOTfXnh'
+CLIENT_SECRET = 'UrZUIX7yRdbY0ta3LX3AVUymQwPdAGZ3kPtWuMTlkAdOihuh6O2IWTXjXJ86gXAqjqxeWhCkqdxBAeSi7tnlGTg4UqoGHIsF31wCuV8FsODVEaQ5ImbLz4qA6g6dJtRe'

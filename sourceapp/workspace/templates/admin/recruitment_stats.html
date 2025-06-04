@@ -1,10 +1,100 @@
-{% extends 'admin/base_site.html' %}
+{% extends "admin/base_site.html" %}
+{% load humanize %}
+{% block title %}Thống kê tuyển dụng{% endblock %}
 {% block content %}
-<h1>Recruitment Stats</h1>
+    <form method="get" style="margin-bottom: 20px;">
+        <label for="start_date">Từ ngày:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+        <label for="end_date">Đến ngày:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+        <button type="submit">Lọc</button>
+    </form>
+    <h1>Thống kê tuyển dụng theo danh mục</h1>
+    <table class="admin-table" style="border-collapse: collapse; width: 100%; margin-bottom: 30px;">
+        <thead>
+        <tr>
+            <th style="border: 1px solid #ccc; padding: 8px;">Danh mục</th>
+            <th style="border: 1px solid #ccc; padding: 8px;">Số lượng việc làm</th>
+            <th style="border: 1px solid #ccc; padding: 8px;">Mức lương trung bình</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in recruitment_stats %}
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 8px;">{{ row.name }}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">{{ row.cate_count }}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">{{ row.avg_salary|floatformat:0|intcomma }} VND</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="2">Không có dữ liệu.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h1>Thống kê tuyển dụng theo hình thức làm việc</h1>
+    <table class="admin-table" style="border-collapse: collapse; width: 100%; margin-bottom: 30px;">
+        <thead>
+        <tr>
+            <th style="border: 1px solid #ccc; padding: 8px;">Hình thức</th>
+            <th style="border: 1px solid #ccc; padding: 8px;">Số lượng việc làm</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in work_type_stats %}
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 8px;">{{ row.name }}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">{{ row.job_count }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="2">Không có dữ liệu.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <canvas id="recruitmentChart" width="600" height="300"></canvas>
+    <canvas id="overviewChart" width="600" height="300" style="margin-top:40px;"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const recruitmentData = {{ recruitment_stats|safe }};
+        const labels = recruitmentData.map(item => item.name);
+        const data = recruitmentData.map(item => item.cate_count);
 
-<ul>
-    {% for stat in stats %}
-    <li>{{ stat.id }} - {{ stat.name }} - {{ stat.cate_count }}</li>
-    {% endfor %}
-</ul>
+        new Chart(document.getElementById('recruitmentChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Số lượng việc làm theo danh mục',
+                    data: data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {legend: {position: 'top'}},
+                scales: {y: {beginAtZero: true}}
+            }
+        });
+        new Chart(document.getElementById('overviewChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Ứng viên', 'Nhà tuyển dụng'],
+                datasets: [{
+                    data: [{{ user_count }}, {{ company_count }}],
+                    backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {position: 'top'},
+                    title: {display: true, text: 'Tổng quan nguời dùng'}
+                }
+            }
+        });
+    </script>
 {% endblock %}

@@ -1,28 +1,41 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, ValidationError, CharField
 from . import models
 
 
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = models.Category
-        fields = ['name', 'description']
+        fields = ['id', 'name', 'description']
 
 
 class WorkTypeSerializer(ModelSerializer):
     class Meta:
         model = models.WorkType
-        fields = ['name']
+        fields = ['id', 'name']
 
 
 class ResumeSerializer(ModelSerializer):
+    def create(self, validated_data):
+        user = self.context['request'].user
+        resume = models.Resume.objects.create(user=user, **validated_data)
+        return resume
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['icon'] = instance.icon.url if instance.icon else ''
+        data['cv'] = instance.cv.url if instance.cv else ''
         return data
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        name = attrs.get('name')
+        if self.instance is None:
+            if models.Resume.objects.filter(name=name, user=user).exists():
+                raise ValidationError({'info': 'Tên hồ sơ không được trùng lặp.'})
+        return attrs
 
     class Meta:
         model = models.Resume
-        fields = ['name', 'cv', 'user']
+        fields = ['id', 'name', 'cv']
 
 
 class CompanyImageSerializer(ModelSerializer):
@@ -37,48 +50,56 @@ class CompanyImageSerializer(ModelSerializer):
 
 
 class CompanySerializer(ModelSerializer):
-    images = CompanyImageSerializer(many=True, write_only=True)
+    images = CompanyImageSerializer(many=True, read_only=True)
 
     def create(self, validated_data):
-        images_data = validated_data.pop('images')
-        company = models.Company.objects.create(**validated_data)
-        for image_data in images_data:
-            models.CompanyImage.objects.create(company=company, **image_data)
+        request = self.context.get('request')
+        user = request.user
+        company = models.Company.objects.create(user=user, **validated_data)
+
+        image_files = [
+            file for key, file in request.FILES.items()
+            if key.startswith('images')
+        ]
+
+        for image in image_files:
+            models.CompanyImage.objects.create(company=company, image=image)
+
         return company
 
     class Meta:
         model = models.Company
-        fields = ['name', 'code', 'images']
+        fields = ['id', 'name', 'code', 'verified', 'images']
 
 
 class RecruitmentSerializer(ModelSerializer):
+    company_name = CharField(source='company.name', read_only=True)
+    category_name = CharField(source='category.name', read_only=True)
+    work_type_name = CharField(source='work_type.name', read_only=True)
+
     class Meta:
         model = models.Recruitment
-        fields = ['title', 'description', 'skills_required', 'salary', 'location', 'company', 'category', 'work_time_start']
+        fields = ['id', 'title', 'description', 'salary', 'company_name',
+                  'category_name', 'work_type_name', 'location', 'company',
+                  'category', 'work_type', 'date_start']
 
 
 class ApplySerializer(ModelSerializer):
     class Meta:
         model = models.Apply
-        fields = ['resume', 'recruitment', 'status']
+        fields = ['id', 'resume', 'recruitment', 'status', 'created_date']
 
 
 class FollowSerializer(ModelSerializer):
+    company_name = CharField(source='company.name', read_only=True)
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        return models.Follow.objects.create(user=request.user, **validated_data)
+
     class Meta:
         model = models.Follow
-        fields = ['company', 'user']
-
-
-class UserCommentSerializer(ModelSerializer):
-    class Meta:
-        model = models.UserComment
-        fields = ['content', 'company']
-
-
-class CompanyCommentSerializer(ModelSerializer):
-    class Meta:
-        model = models.CompanyComment
-        fields = ['content', 'user']
+        fields = ['id', 'company', 'company_name']
 
 
 class UserSerializer(ModelSerializer):
@@ -96,9 +117,29 @@ class UserSerializer(ModelSerializer):
 
     class Meta:
         model = models.User
-        fields = ['email', 'phone', 'first_name', 'last_name', 'role', 'avatar']
+        fields = ['id', 'email', 'phone', 'first_name', 'last_name', 'role', 'avatar']
         extra_kwargs = {
             'password': {
                 'write_only': True
             }
         }
+
+
+class CompanyCommentSerializer(ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        return models.CompanyComment.objects.create(user=request.user, **validated_data)
+
+    class Meta:
+        model = models.CompanyComment
+        fields = ['id', 'content', 'user', 'company', 'created_date']
+
+
+class UserCommentSerializer(ModelSerializer):
+    company_name = CharField(source='company.name', read_only=True)
+
+    class Meta:
+        model = models.UserComment
+        fields = ['id', 'content', 'user', 'company', 'created_date', 'company_name']

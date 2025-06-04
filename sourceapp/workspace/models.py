@@ -1,7 +1,6 @@
 from cloudinary.models import CloudinaryField
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db import models
 
 
@@ -55,7 +54,7 @@ class Company(ModelBase):
     verified = models.BooleanField(default=False)
 
     # relationship
-    user = models.ForeignKey(User, related_name="companies", on_delete=models.CASCADE)
+    user = models.OneToOneField(User, related_name="company", on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -88,14 +87,14 @@ class Resume(ModelBase):
 class Recruitment(ModelBase):
     title = models.CharField(max_length=255)
     description = models.TextField()
-    skills_required = models.CharField(max_length=255)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
-    work_time_start = models.DateTimeField(null=False)
+    date_start = models.DateField(null=False)
     location = models.CharField(max_length=255)
 
     # foreignKey
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='recruitments')
+    work_type = models.ForeignKey(WorkType, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.title} - {self.company.name}"
@@ -104,8 +103,12 @@ class Recruitment(ModelBase):
 class Apply(ModelBase):
     STATUS = [
         (0, 'Default'),
-        (1, 'Accepted'),
-        (2, 'Rejected'),
+        (1, 'Rejected'),
+        (2, 'Interview'),
+        (3, 'Offer'),
+        (4, 'Hired'),
+        (5, 'Cancelled'),
+        (6, 'Declined'),
     ]
 
     status = models.IntegerField(choices=STATUS, default=0)
@@ -116,9 +119,6 @@ class Apply(ModelBase):
 
     def __str__(self):
         return f"{self.resume.user.full_name()} applied for {self.recruitment.title}"
-
-    def is_done(self):
-        return self.status != 0
 
 
 class Interact(ModelBase):

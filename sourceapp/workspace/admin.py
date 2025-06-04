@@ -1,15 +1,16 @@
 from django.contrib import admin
-from django.db.models import Count
+from django.db.models import Count, Avg
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls.conf import path
+from django.utils.dateparse import parse_date
 from django.utils.safestring import mark_safe
 
-from .models import Category, Company, CompanyImage
+from . import models
 
 
 class CompanyImageInline(admin.TabularInline):
-    model = CompanyImage
+    model = models.CompanyImage
     extra = 0
     readonly_fields = ['image_preview']
 
@@ -42,7 +43,7 @@ class CompanyAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def verify_company(self, request, company_id):
-        company = Company.objects.get(pk=company_id)
+        company = models.Company.objects.get(pk=company_id)
         company.verified = True
         company.save()
         self.message_user(request, f"Công ty '{company.name}' đã được xác thực.")
@@ -53,15 +54,55 @@ class MyAdminSite(admin.AdminSite):
     site_header = 'Quản Lý Tìm Kiếm Việc Làm.'
 
     def get_urls(self):
-        return [path('recruitment-stats/', self.recruitment_stats)] + super().get_urls()
+        return [path('stats/', self.recruitment_stats)] + super().get_urls()
 
     def recruitment_stats(self, request):
-        stats = Category.objects.annotate(cate_count=Count('recruitment__id')).values('id', 'name', 'cate_count')
-        return TemplateResponse(request, 'admin/recruitment_stats.html', {
-            'stats': stats
-        })
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+
+        start_date_parsed = parse_date(start_date) if start_date else None
+        end_date_parsed = parse_date(end_date) if end_date else None
+
+        recruitments = models.Recruitment.objects.all()
+        if start_date_parsed:
+            recruitments = recruitments.filter(date_start__gte=start_date_parsed)
+        if end_date_parsed:
+            recruitments = recruitments.filter(date_start__lte=end_date_parsed)
+
+        category_stats = models.Category.objects.filter(
+            recruitment__in=recruitments
+        ).annotate(
+            cate_count=Count('recruitment'),
+            avg_salary=Avg('recruitment__salary')
+        ).values('name', 'cate_count', 'avg_salary')
+
+        recruitment_stats = [
+            {**item, 'avg_salary': float(item['avg_salary']) if item['avg_salary'] is not None else 0.0}
+            for item in category_stats
+        ]
+
+        work_type_stats = models.WorkType.objects.filter(
+            recruitment__in=recruitments
+        ).annotate(
+            job_count=Count('recruitment')
+        ).values('name', 'job_count')
+
+        user_count = models.User.objects.filter(role=0).count()
+        company_count = models.Company.objects.count()
+
+        context = {
+            'recruitment_stats': recruitment_stats,
+            'work_type_stats': work_type_stats,
+            'user_count': user_count,
+            'company_count': company_count,
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+
+        return TemplateResponse(request, 'admin/recruitment_stats.html', context)
 
 
 admin_site = MyAdminSite(name='admin')
-admin_site.register(Category)
-admin_site.register(Company, CompanyAdmin)
+admin_site.register(models.Category)
+admin_site.register(models.WorkType)
+admin_site.register(models.Company, CompanyAdmin)
