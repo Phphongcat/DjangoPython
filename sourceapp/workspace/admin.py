@@ -87,7 +87,7 @@ class MyAdminSite(admin.AdminSite):
             job_count=Count('recruitment')
         ).values('name', 'job_count')
 
-        user_count = models.User.objects.filter(role=0).count()
+        user_count = models.User.objects.filter(role=0, is_staff=0).count()
         company_count = models.Company.objects.count()
 
         context = {
